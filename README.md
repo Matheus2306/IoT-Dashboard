@@ -1,12 +1,65 @@
-# React + Vite
+# 🏠 Automação Residencial com ESP32 e MQTT (Simulação Wokwi)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 📌 Objetivo
+Este projeto implementa uma automação residencial **simulada** com **ESP32** no Wokwi, utilizando **MQTT** e o broker público **broker.hivemq.com**.  
+O sistema é dividido em **três ambientes**: **Garagem**, **Sala de Estar** e **Quarto**, permitindo controle automático e manual via **Dashboard** ou qualquer cliente MQTT.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## :tools: Como Funciona
 
-## Expanding the ESLint configuration
+O **ESP32** conecta-se ao WiFi e ao broker **broker.hivemq.com**, inscrevendo-se nos tópicos MQTT correspondentes a cada ambiente.  
+O **Dashboard** ou qualquer cliente MQTT pode publicar mensagens nesses tópicos para acionar dispositivos.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Além disso, sensores (PIR e DHT22) enviam leituras automáticas para tópicos específicos, permitindo controle automático:
+
+- **Garagem:** PIR acende luz por 5s ao detectar movimento. Portões acendem a luz ao abrir.  
+- **Sala:** Temperatura e umidade controlam ar-condicionado e umidificador automaticamente.  
+- **Quarto:** Motor de passo controla cortina por 5s para abrir/fechar.
+
+---
+
+## 📡 Tópicos MQTT e Comandos
+
+### Garagem
+
+| Função                  | Tópico                  | Payloads aceitos   |
+|-------------------------|-------------------------|-------------------|
+| Luz Garagem (manual)    | `garagem/luz`           | `on` / `off`      |
+| Portão Social           | `garagem/social`        | `abrir` / `fechar`|
+| Portão Basculante       | `garagem/basculante`    | `abrir` / `fechar`|
+| Status Luz (automático) | `garagem/luz` (publish) | `on` / `off`      |
+
+---
+
+### Sala de Estar
+
+| Função                   | Tópico               | Payloads aceitos   |
+|--------------------------|----------------------|-------------------|
+| Luz Sala                 | `sala/luz`           | `on` / `off`      |
+| Ar-Condicionado          | `sala/ar`            | `on` / `off`      |
+| Umidificador             | `sala/umidificador`  | `on` / `off`      |
+| Temperatura (automático) | `sala/temperatura`   | valor float °C    |
+| Umidade (automático)     | `sala/umidade`       | valor float %     |
+
+---
+
+### Quarto
+
+| Função                | Tópico              | Payloads aceitos  |
+|-----------------------|---------------------|------------------|
+| Luz Quarto            | `quarto/luz`        | `on` / `off`     |
+| Tomada Inteligente    | `quarto/tomada`     | `on` / `off`     |
+| Cortina               | `quarto/cortina`    | `on` / `off`     |
+
+---
+
+## 🧪 Testando o Projeto com MQTT
+
+Você pode testar usando o **MQTT Web Client da HiveMQ**:
+
+1. Acesse: [https://testclient-cloud.mqtt.cool/]
+2. **Configuração:**  
+   - Host: `broker.hivemq.com`   
+   - Client ID: qualquer identificador único  
+3. Clique em **Connect**.  
