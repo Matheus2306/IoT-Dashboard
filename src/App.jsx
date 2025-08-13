@@ -3,6 +3,7 @@ import "./App.css";
 import LeitorDHT from "./components/LeitorDHT";
 import Paho from "paho-mqtt";
 import Container from "./components/Container";
+import ContainerSala from "./components/ContainerSala";
 
 function App() {
   const [temp, setTemp] = useState("");
@@ -17,7 +18,11 @@ function App() {
   const umidTopic = "sala/umidade";
   const garagemTopic = "garagem/basculante";
   const socialTopic = "garagem/social";
-  const movimentoTopic = "garagem/movimento";
+  const movimentoTopic = "garagem/movimento"; 
+  // tópicos para a sala
+  const luzSalaTopic = "sala/luz";
+  const arSalaTopic = "sala/ar";
+  const umidificadorSalaTopic = "sala/umidificador";
 
   useEffect(() => {
     const clientId = "webClient_" + Math.random().toString(16).substr(2, 8);
@@ -128,6 +133,14 @@ function App() {
           onAbrirSocial={abrirPortaoSocial}
           onFecharSocial={fecharPortaoSocial}
           movimento={movimento}
+        />
+        <ContainerSala 
+        titulo="Sala"
+        intrucao="Ligar luz"
+        intrucao2="Ligar ar condicionado"
+        intrucao3="Ligar umidificador"
+        botaoFe="Ligar"
+        botaoAb="Desligar"
         />
       </div>
     </>
