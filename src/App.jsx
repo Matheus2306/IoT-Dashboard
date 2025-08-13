@@ -45,9 +45,18 @@ function App() {
   }, []);
 
   return (
+    <>
+    {/* exibição de dados via MQTT de um dispositivo IoT esp32 */}
     <div className="container mt-5 bg-dark rounded-2">
       <LeitorDHT temp={temp} umid={umid} />
     </div>
+      <div className="row mx-4">
+        <div className="bg-dark mt-3 col-12 col-md-4 mx-2 rounded-2">
+          <h4 className="border-bottom border-2 my-1 border-white p-2">Controle da Garagem</h4>
+
+        </div>
+      </div>
+    </>
   );
 }
 
