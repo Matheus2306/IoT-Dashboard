@@ -15,6 +15,9 @@ function App() {
   const [statusCortina, setStatusCortina] = useState("fechada");
   const [statusLuz, setStatusLuz] = useState("desligada");
   const [statusTomada, setStatusTomada] = useState("desligada");
+  const [statusLuzSala, setStatusLuzSala] = useState("desligada"); // Novo estado para a luz da sala
+  const [statusArCondicionado, setStatusArCondicionado] = useState("desligado");
+  const [statusUmidificador, setStatusUmidificador] = useState("desligado");
   const movimentoTimeoutRef = useRef(null);
   const clientRef = useRef(null);
 
@@ -179,6 +182,60 @@ function App() {
     }
   };
 
+  const ligarLuzSala = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("on");
+      message.destinationName = luzSalaTopic;
+      clientRef.current.send(message);
+      setStatusLuzSala("ligada");
+    }
+  };
+
+  const desligarLuzSala = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("off");
+      message.destinationName = luzSalaTopic;
+      clientRef.current.send(message);
+      setStatusLuzSala("desligada");
+    }
+  };
+
+  const ligarArCondicionado = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("on");
+      message.destinationName = arSalaTopic;
+      clientRef.current.send(message);
+      setStatusArCondicionado("ligado");
+    }
+  };
+
+  const desligarArCondicionado = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("off");
+      message.destinationName = arSalaTopic;
+      clientRef.current.send(message);
+      setStatusArCondicionado("desligado");
+    }
+  };
+
+  const ligarUmidificador = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("on");
+      message.destinationName = umidificadorSalaTopic;
+      clientRef.current.send(message);
+      setStatusUmidificador("ligado");
+    }
+  };
+
+  const desligarUmidificador = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("off");
+      message.destinationName = umidificadorSalaTopic;
+      clientRef.current.send(message);
+      setStatusUmidificador("desligado");
+    }
+  };
+
   return (
     <>
       <div className="container mt-5 bg-dark rounded-2">
@@ -217,8 +274,17 @@ function App() {
         intrucao="Ligar luz"
         intrucao2="Ligar ar condicionado"
         intrucao3="Ligar umidificador"
-        botaoFe="Ligar"
-        botaoAb="Desligar"
+        botaoFe="Desligar"
+        botaoAb="Ligar"
+        onAbrir={ligarLuzSala}
+        onFechar={desligarLuzSala}
+        status={statusLuzSala} // Passa o status da luz da sala
+        onAbrir2={ligarArCondicionado}
+        onFechar2={desligarArCondicionado}
+        status2={statusArCondicionado}
+        onAbrir3={ligarUmidificador}
+        onFechar3={desligarUmidificador}
+        status3={statusUmidificador}
         />
       </div>
     </>

@@ -15,20 +15,23 @@ const ContainerSala = (props) => {
             onFechar={props.onFechar}
             onAbrir={props.onAbrir}
             botaoFe={props.botaoFe}
+            status={props.status}
           />
           <BotoesDeControleGar
             intrucao={props.intrucao2}
             botaoAb={props.botaoAb}
-            onFechar={props.onFecharSocial}
-            onAbrir={props.onAbrirSocial}
+            onFechar={props.onFechar2}
+            onAbrir={props.onAbrir2}
             botaoFe={props.botaoFe}
+            status={props.status2}
           />
             <BotoesDeControleGar
                 intrucao={props.intrucao3}
                 botaoAb={props.botaoAb}
-                onFechar={props.onFecharUmid}
-                onAbrir={props.onAbrirUmid}
+                onFechar={props.onFechar3}
+                onAbrir={props.onAbrir3}
                 botaoFe={props.botaoFe}
+                status={props.status3}   
             />
         </div>
       </div>
