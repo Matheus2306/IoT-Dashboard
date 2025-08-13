@@ -18,6 +18,7 @@ function App() {
   const [statusLuzSala, setStatusLuzSala] = useState("desligada"); // Novo estado para a luz da sala
   const [statusArCondicionado, setStatusArCondicionado] = useState("desligado");
   const [statusUmidificador, setStatusUmidificador] = useState("desligado");
+  const [theme, setTheme] = useState("dark");
   const movimentoTimeoutRef = useRef(null);
   const clientRef = useRef(null);
 
@@ -236,9 +237,22 @@ function App() {
     }
   };
 
+  const toggleTheme = () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    document.documentElement.setAttribute("data-theme", newTheme);
+  };
+
   return (
     <>
-      <div className="container mt-5 bg-dark rounded-2">
+      <div className="container mt-5">
+        <button
+          className="mb-3"
+          onClick={toggleTheme}
+          style={{ float: "right" }}
+        >
+          Alternar para {theme === "dark" ? "Modo Claro" : "Modo Escuro"}
+        </button>
         <LeitorDHT temp={temp} umid={umid} />
       </div>
       <div className="row mx-4">
