@@ -50,11 +50,20 @@ function App() {
     <div className="container mt-5 bg-dark rounded-2">
       <LeitorDHT temp={temp} umid={umid} />
     </div>
-      <div className="row mx-4">
-        <div className="bg-dark mt-3 col-12 col-md-4 mx-2 rounded-2">
-          <h4 className="border-bottom border-2 my-1 border-white p-2">Controle da Garagem</h4>
+      <div className="row mx-2 mt-5 gap-3 justify-content-center">
 
+        <div className="bg-dark mt-3 col-12 col-md-3 rounded-2">
+          <h4 className="border-bottom border-2 my-1 border-white p-2">Controle da Garagem</h4>
         </div>
+
+        <div className="bg-dark mt-3 col-12 col-md-4 rounded-2">
+        <h4 className="border-bottom border-2 my-1 border-white p-2">Controle da Sala</h4>
+        </div>
+
+        <div className="bg-dark mt-3 col-12 col-md-3 rounded-2">
+        <h4 className="border-bottom border-2 my-1 border-white p-2">Controle da Sala</h4>
+        </div>
+        
       </div>
     </>
   );
