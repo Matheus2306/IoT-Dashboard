@@ -10,10 +10,10 @@ function App() {
   const [temp, setTemp] = useState("");
   const [umid, setUmid] = useState("");
   const [movimento, setMovimento] = useState("Nenhum movimento detectado");
-  const [statusPortao, setStatusPortao] = useState("fechado");
-  const [statusPortaoSocial, setStatusPortaoSocial] = useState("fechado"); // Novo estado
-  const [statusCortina, setStatusCortina] = useState("fechada");
-  const [statusLuz, setStatusLuz] = useState("desligada");
+  const [statusPortao, setStatusPortao] = useState("Fechado");
+  const [statusPortaoSocial, setStatusPortaoSocial] = useState("Fechado"); // Novo estado
+  const [statusCortina, setStatusCortina] = useState("Fechada");
+  const [statusLuz, setStatusLuz] = useState("Desligada");
   const [statusTomada, setStatusTomada] = useState("desligada");
   const [statusLuzSala, setStatusLuzSala] = useState("desligada"); // Novo estado para a luz da sala
   const [statusArCondicionado, setStatusArCondicionado] = useState("desligado");
@@ -21,6 +21,7 @@ function App() {
   const [theme, setTheme] = useState("dark");
   const movimentoTimeoutRef = useRef(null);
   const clientRef = useRef(null);
+  const [statusLuzGaragem, setStatusLuzGaragem] = useState("Desligada");
 
   const broker = "broker.hivemq.com";
   const port = 8884;
@@ -37,17 +38,22 @@ function App() {
   const arSalaTopic = "sala/ar";
   const umidificadorSalaTopic = "sala/umidificador";
 
+  // Tópicos auxiliares
+  const luzGaragemTopic = "garagem/luz";
+  
+
+
   useEffect(() => {
     const clientId = "webClient_" + Math.random().toString(16).substr(2, 8);
     const client = new Paho.Client(broker, port, clientId);
     clientRef.current = client;
-
+    
     client.onConnectionLost = (responseObject) => {
       if (responseObject.errorCode !== 0) {
         console.log("Conexão perdida: " + responseObject.errorMessage);
       }
     };
-
+    
     client.onMessageArrived = (message) => {
       if (message.destinationName === tempTopic) {
         setTemp(message.payloadString.slice(0, -2));
@@ -76,17 +82,63 @@ function App() {
           setMovimento("Nenhum movimento detectado");
         }
       }
+
+      //respostas para a garagem
+      if (message.destinationName === luzGaragemTopic) {
+        if (message.payloadString === "on") {
+          setStatusLuzGaragem("Ligada");
+        } else if (message.payloadString === "off") {
+          setStatusLuzGaragem("Desligada");
+        }
+      }
+      if (message.destinationName === socialTopic) {
+        if (message.payloadString == "abrir") {
+          console.log("deucerto")
+          setStatusPortaoSocial("Aberto");
+        } else if (message.payloadString == "fechar") {
+          setStatusPortaoSocial("Fechado");
+        }
+      }
+
+      if (message.destinationName === garagemTopic) {
+        if (message.payloadString === "abrir") {
+          setStatusPortao("Aberto");
+        } else if (message.payloadString === "fechar") {
+          setStatusPortao("Fechado");
+        }
+      }
+
+      if (message.destinationName === cortinaTopic) {
+        if (message.payloadString === "aberta") {
+          setStatusCortina("Aberta");
+        } else if (message.payloadString === "fechada") {
+          setStatusCortina("Fechada");
+        }
+      }
+      if(message.destinationName === luzTopic) {
+        if (message.payloadString === "on") {
+          setStatusLuz("Ligada");
+        } else if (message.payloadString === "off") {
+          setStatusLuz("Desligada");
+        }
+      }
     };
+
 
     client.connect({
       onSuccess: () => {
         client.subscribe(tempTopic);
         client.subscribe(umidTopic);
         client.subscribe(movimentoTopic);
+        client.subscribe(luzGaragemTopic); // Inscreve no tópico da luz da garagem
+        client.subscribe(socialTopic);
+        client.subscribe(garagemTopic); // Inscreve no tópico do portão basculante
+        client.subscribe(cortinaTopic);
+        client.subscribe(luzTopic);
       },
       useSSL: true,
     });
-
+    
     return () => {
       client.disconnect();
       if (movimentoTimeoutRef.current) {
@@ -94,23 +146,21 @@ function App() {
       }
     };
   }, []);
-
+  
   // Funções para enviar comandos
   const abrirPortao = () => {
     if (clientRef.current && clientRef.current.isConnected()) {
       const message = new Paho.Message("abrir");
       message.destinationName = garagemTopic;
       clientRef.current.send(message);
-      setStatusPortao("aberto");
     }
   };
-
+  
   const fecharPortao = () => {
     if (clientRef.current && clientRef.current.isConnected()) {
       const message = new Paho.Message("fechar");
       message.destinationName = garagemTopic;
       clientRef.current.send(message);
-      setStatusPortao("fechado");
     }
   };
 
@@ -119,12 +169,10 @@ function App() {
       const message = new Paho.Message("abrir");
       message.destinationName = socialTopic;
       clientRef.current.send(message);
-      setStatusPortaoSocial("aberto");
       setTimeout(() => {
         const fecharMsg = new Paho.Message("fechar");
         fecharMsg.destinationName = socialTopic;
         clientRef.current.send(fecharMsg);
-        setStatusPortaoSocial("fechado");
       }, 5000);
     }
   };
@@ -134,7 +182,6 @@ function App() {
       const message = new Paho.Message("on");
       message.destinationName = cortinaTopic;
       clientRef.current.send(message);
-      setStatusCortina("aberta");
     }
   };
 
@@ -143,7 +190,6 @@ function App() {
       const message = new Paho.Message("off");
       message.destinationName = cortinaTopic;
       clientRef.current.send(message);
-      setStatusCortina("fechada");
     }
   };
 
@@ -152,7 +198,6 @@ function App() {
       const message = new Paho.Message("on");
       message.destinationName = luzTopic;
       clientRef.current.send(message);
-      setStatusLuz("ligada");
     }
   };
 
@@ -161,7 +206,6 @@ function App() {
       const message = new Paho.Message("off");
       message.destinationName = luzTopic;
       clientRef.current.send(message);
-      setStatusLuz("desligada");
     }
   };
 
@@ -269,6 +313,7 @@ function App() {
           movimento={movimento}
           status={statusPortao}
           statusSocial={statusPortaoSocial} // Passa status social
+          luz={statusLuzGaragem} // Passa status da luz da garagem
         />
 
         <ContainerQuarto
