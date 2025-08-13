@@ -28,7 +28,6 @@ function App() {
   const cortinaTopic = "quarto/cortina";
   const luzTopic = "quarto/luz";
   const tomadaTopic = "quarto/tomada";
-  const movimentoTopic = "garagem/movimento"; 
   // tópicos para a sala
   const luzSalaTopic = "sala/luz";
   const arSalaTopic = "sala/ar";
