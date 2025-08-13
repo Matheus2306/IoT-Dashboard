@@ -3,11 +3,17 @@ import "./App.css";
 import LeitorDHT from "./components/LeitorDHT";
 import Paho from "paho-mqtt";
 import Container from "./components/Container";
+import ContainerQuarto from "./components/ContainerQuarto";
 
 function App() {
   const [temp, setTemp] = useState("");
   const [umid, setUmid] = useState("");
   const [movimento, setMovimento] = useState("Nenhum movimento detectado");
+  const [statusPortao, setStatusPortao] = useState("fechado");
+  const [statusPortaoSocial, setStatusPortaoSocial] = useState("fechado"); // Novo estado
+  const [statusCortina, setStatusCortina] = useState("fechada");
+  const [statusLuz, setStatusLuz] = useState("desligada");
+  const [statusTomada, setStatusTomada] = useState("desligada");
   const movimentoTimeoutRef = useRef(null);
   const clientRef = useRef(null);
 
@@ -18,6 +24,9 @@ function App() {
   const garagemTopic = "garagem/basculante";
   const socialTopic = "garagem/social";
   const movimentoTopic = "garagem/movimento";
+  const cortinaTopic = "quarto/cortina";
+  const luzTopic = "quarto/luz";
+  const tomadaTopic = "quarto/tomada";
 
   useEffect(() => {
     const clientId = "webClient_" + Math.random().toString(16).substr(2, 8);
@@ -83,6 +92,7 @@ function App() {
       const message = new Paho.Message("abrir");
       message.destinationName = garagemTopic;
       clientRef.current.send(message);
+      setStatusPortao("aberto");
     }
   };
 
@@ -91,6 +101,7 @@ function App() {
       const message = new Paho.Message("fechar");
       message.destinationName = garagemTopic;
       clientRef.current.send(message);
+      setStatusPortao("fechado");
     }
   };
 
@@ -99,14 +110,67 @@ function App() {
       const message = new Paho.Message("abrir");
       message.destinationName = socialTopic;
       clientRef.current.send(message);
+      setStatusPortaoSocial("aberto");
+      setTimeout(() => {
+        const fecharMsg = new Paho.Message("fechar");
+        fecharMsg.destinationName = socialTopic;
+        clientRef.current.send(fecharMsg);
+        setStatusPortaoSocial("fechado");
+      }, 5000);
     }
   };
 
-  const fecharPortaoSocial = () => {
+  const abrirCortina = () => {
     if (clientRef.current && clientRef.current.isConnected()) {
-      const message = new Paho.Message("fechar");
-      message.destinationName = socialTopic;
+      const message = new Paho.Message("on");
+      message.destinationName = cortinaTopic;
       clientRef.current.send(message);
+      setStatusCortina("aberta");
+    }
+  };
+
+  const fecharCortina = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("off");
+      message.destinationName = cortinaTopic;
+      clientRef.current.send(message);
+      setStatusCortina("fechada");
+    }
+  };
+
+  const ligarLuz = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("on");
+      message.destinationName = luzTopic;
+      clientRef.current.send(message);
+      setStatusLuz("ligada");
+    }
+  };
+
+  const desligarLuz = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("off");
+      message.destinationName = luzTopic;
+      clientRef.current.send(message);
+      setStatusLuz("desligada");
+    }
+  };
+
+  const ligarTomada = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("on");
+      message.destinationName = tomadaTopic;
+      clientRef.current.send(message);
+      setStatusTomada("ligada");
+    }
+  };
+
+  const desligarTomada = () => {
+    if (clientRef.current && clientRef.current.isConnected()) {
+      const message = new Paho.Message("off");
+      message.destinationName = tomadaTopic;
+      clientRef.current.send(message);
+      setStatusTomada("desligada");
     }
   };
 
@@ -126,8 +190,22 @@ function App() {
           onAbrir={abrirPortao}
           onFechar={fecharPortao}
           onAbrirSocial={abrirPortaoSocial}
-          onFecharSocial={fecharPortaoSocial}
           movimento={movimento}
+          status={statusPortao}
+          statusSocial={statusPortaoSocial} // Passa status social
+        />
+
+        <ContainerQuarto
+          titulo="Quarto"
+          statusTomada={statusTomada}
+          statusCortina={statusCortina}
+          statusLuz={statusLuz}
+          onAbrirCortina={abrirCortina}
+          onFecharCortina={fecharCortina}
+          onLigarLuz={ligarLuz}
+          onDesligarLuz={desligarLuz}
+          onLigarTomada={ligarTomada}
+          onDesligarTomada={desligarTomada}
         />
       </div>
     </>

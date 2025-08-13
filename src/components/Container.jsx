@@ -15,6 +15,7 @@ const Container = (props) => {
             onFechar={props.onFechar}
             onAbrir={props.onAbrir}
             botaoFe={props.botaoFe}
+            status={props.status}
           />
           <BotoesDeControleGar
             intrucao={props.intrucao2}
@@ -22,6 +23,7 @@ const Container = (props) => {
             onFechar={props.onFecharSocial}
             onAbrir={props.onAbrirSocial}
             botaoFe={props.botaoFe}
+            status={props.statusSocial}
           />
           <div className="p-2 w-100 d-flex flex-column flex-md-row align-items-center justify-content-around gap-2">
             <h5 className="mb-2 mb-md-0 text-center w-100">
