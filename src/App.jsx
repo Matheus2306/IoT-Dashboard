@@ -40,20 +40,18 @@ function App() {
 
   // Tópicos auxiliares
   const luzGaragemTopic = "garagem/luz";
-  
-
 
   useEffect(() => {
     const clientId = "webClient_" + Math.random().toString(16).substr(2, 8);
     const client = new Paho.Client(broker, port, clientId);
     clientRef.current = client;
-    
+
     client.onConnectionLost = (responseObject) => {
       if (responseObject.errorCode !== 0) {
         console.log("Conexão perdida: " + responseObject.errorMessage);
       }
     };
-    
+
     client.onMessageArrived = (message) => {
       if (message.destinationName === tempTopic) {
         setTemp(message.payloadString.slice(0, -2));
@@ -93,7 +91,7 @@ function App() {
       }
       if (message.destinationName === socialTopic) {
         if (message.payloadString == "abrir") {
-          console.log("deucerto")
+          console.log("deucerto");
           setStatusPortaoSocial("Aberto");
         } else if (message.payloadString == "fechar") {
           setStatusPortaoSocial("Fechado");
@@ -115,7 +113,7 @@ function App() {
           setStatusCortina("Fechada");
         }
       }
-      if(message.destinationName === luzTopic) {
+      if (message.destinationName === luzTopic) {
         if (message.payloadString === "on") {
           setStatusLuz("Ligada");
         } else if (message.payloadString === "off") {
@@ -123,7 +121,6 @@ function App() {
         }
       }
     };
-
 
     client.connect({
       onSuccess: () => {
@@ -138,7 +135,7 @@ function App() {
       },
       useSSL: true,
     });
-    
+
     return () => {
       client.disconnect();
       if (movimentoTimeoutRef.current) {
@@ -146,7 +143,7 @@ function App() {
       }
     };
   }, []);
-  
+
   // Funções para enviar comandos
   const abrirPortao = () => {
     if (clientRef.current && clientRef.current.isConnected()) {
@@ -155,7 +152,7 @@ function App() {
       clientRef.current.send(message);
     }
   };
-  
+
   const fecharPortao = () => {
     if (clientRef.current && clientRef.current.isConnected()) {
       const message = new Paho.Message("fechar");
@@ -289,15 +286,19 @@ function App() {
 
   return (
     <>
-      <div className="container mt-5">
-        <button
-          className="mb-3"
-          onClick={toggleTheme}
-          style={{ float: "right" }}
-        >
-          Alternar para {theme === "dark" ? "Modo Claro" : "Modo Escuro"}
+      <div className="w-100 py-4 d-flex justify-content-around align-items-center border-bottom border-dark">
+        <div className="col-6 col-md-5 d-flex justify-content-center align-items-center">
+          <div className=" animationSmart mx-5">
+            <i className="bi bi-house fs-3 text-light p-3 opacidade rounded-5"></i>
+          </div>
+          <div>
+            <h2 id="title">SmartHouse</h2>
+            <span className="text-dark-emphasis">Controle via IoT</span>
+          </div>
+        </div>
+        <button className="mb-3 px-3 py-2 d-flex align-items-center justify-content-center rounded-5" onClick={toggleTheme}>
+          {theme === "dark" ? <i className="bi bi-brightness-high fs-4"></i> : <i className="bi bi-moon fs-4"></i>}
         </button>
-        <LeitorDHT temp={temp} umid={umid} />
       </div>
       <div className="row mx-4">
         <Container
@@ -328,22 +329,22 @@ function App() {
           onLigarTomada={ligarTomada}
           onDesligarTomada={desligarTomada}
         />
-        <ContainerSala 
-        titulo="Sala"
-        intrucao="Ligar luz"
-        intrucao2="Ligar ar condicionado"
-        intrucao3="Ligar umidificador"
-        botaoFe="Desligar"
-        botaoAb="Ligar"
-        onAbrir={ligarLuzSala}
-        onFechar={desligarLuzSala}
-        status={statusLuzSala} // Passa o status da luz da sala
-        onAbrir2={ligarArCondicionado}
-        onFechar2={desligarArCondicionado}
-        status2={statusArCondicionado}
-        onAbrir3={ligarUmidificador}
-        onFechar3={desligarUmidificador}
-        status3={statusUmidificador}
+        <ContainerSala
+          titulo="Sala"
+          intrucao="Ligar luz"
+          intrucao2="Ligar ar condicionado"
+          intrucao3="Ligar umidificador"
+          botaoFe="Desligar"
+          botaoAb="Ligar"
+          onAbrir={ligarLuzSala}
+          onFechar={desligarLuzSala}
+          status={statusLuzSala} // Passa o status da luz da sala
+          onAbrir2={ligarArCondicionado}
+          onFechar2={desligarArCondicionado}
+          status2={statusArCondicionado}
+          onAbrir3={ligarUmidificador}
+          onFechar3={desligarUmidificador}
+          status3={statusUmidificador}
         />
       </div>
     </>
