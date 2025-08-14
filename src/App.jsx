@@ -19,6 +19,7 @@ function App() {
   const [statusArCondicionado, setStatusArCondicionado] = useState("desligado");
   const [statusUmidificador, setStatusUmidificador] = useState("desligado");
   const [theme, setTheme] = useState("dark");
+
   const movimentoTimeoutRef = useRef(null);
   const clientRef = useRef(null);
   const [statusLuzGaragem, setStatusLuzGaragem] = useState("Desligada");
@@ -41,15 +42,34 @@ function App() {
   // Tópicos auxiliares
   const luzGaragemTopic = "garagem/luz";
 
+  // Estado do cliente MQTT
+  const [clientStatus, setClientStatus] = useState(false); // true = conectado
+  const [connecting, setConnecting] = useState(true); // true = tentando conectar
+  const [transitionClass, setTransitionClass] = useState(""); // classe temporária para animações
+  const prevConnStateRef = useRef(null);
+  const transitionTimeoutRef = useRef(null);
+
   useEffect(() => {
     const clientId = "webClient_" + Math.random().toString(16).substr(2, 8);
     const client = new Paho.Client(broker, port, clientId);
     clientRef.current = client;
 
+    setConnecting(true);
+    setClientStatus(false);
+
     client.onConnectionLost = (responseObject) => {
+      setClientStatus(false);
+      setConnecting(false);
       if (responseObject.errorCode !== 0) {
         console.log("Conexão perdida: " + responseObject.errorMessage);
       }
+      reconnectClient();
+      console.log("Reconectando ao broker MQTT...");
+    };
+
+    client.onConnectionEstablished = () => {
+      setClientStatus(true);
+      setConnecting(false);
     };
 
     client.onMessageArrived = (message) => {
@@ -76,7 +96,7 @@ function App() {
               clearTimeout(movimentoTimeoutRef.current);
             }
           }
-        } catch (e) {
+        } catch {
           setMovimento("Nenhum movimento detectado");
         }
       }
@@ -91,7 +111,6 @@ function App() {
       }
       if (message.destinationName === socialTopic) {
         if (message.payloadString == "abrir") {
-          console.log("deucerto");
           setStatusPortaoSocial("Aberto");
         } else if (message.payloadString == "fechar") {
           setStatusPortaoSocial("Fechado");
@@ -124,6 +143,8 @@ function App() {
 
     client.connect({
       onSuccess: () => {
+        setClientStatus(true);
+        setConnecting(false);
         client.subscribe(tempTopic);
         client.subscribe(umidTopic);
         client.subscribe(movimentoTopic);
@@ -134,6 +155,10 @@ function App() {
         client.subscribe(luzTopic);
       },
       useSSL: true,
+      onFailure: () => {
+        setClientStatus(false);
+        setConnecting(false);
+      },
     });
 
     return () => {
@@ -143,6 +168,24 @@ function App() {
       }
     };
   }, []);
+
+  // função para reconectar o cliente
+  const reconnectClient = () => {
+    if (clientRef.current && !clientRef.current.isConnected()) {
+      setConnecting(true);
+      clientRef.current.connect({
+        onSuccess: () => {
+          setClientStatus(true);
+          setConnecting(false);
+        },
+        useSSL: true,
+        onFailure: () => {
+          setClientStatus(false);
+          setConnecting(false);
+        },
+      });
+    }
+  };
 
   // Funções para enviar comandos
   const abrirPortao = () => {
@@ -278,75 +321,220 @@ function App() {
     }
   };
 
-  const toggleTheme = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
+  // Inicializa tema com base em localStorage ou preferência do sistema
+  useEffect(() => {
+    const STORAGE_KEY = "theme-preference";
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const systemLight = window.matchMedia(
+        "(prefers-color-scheme: light)"
+      ).matches;
+      const initial = stored || (systemLight ? "light" : "dark");
+      setTheme(initial);
+      document.documentElement.setAttribute("data-theme", initial);
+    } catch {
+      // Falha ao acessar localStorage (modo privado / restrições)
+    }
+  }, []);
+
+  // Escuta mudanças de preferência do sistema (se o usuário não fixou manualmente depois)
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const listener = (ev) => {
+      // Só altera automaticamente se o usuário não forçou manualmente (sem storage setado)
+      if (!localStorage.getItem("theme-preference")) {
+        const next = ev.matches ? "light" : "dark";
+        setTheme(next);
+        document.documentElement.setAttribute("data-theme", next);
+      }
+    };
+    try {
+      mq.addEventListener("change", listener);
+    } catch {
+      mq.addListener(listener);
+    }
+    return () => {
+      try {
+        mq.removeEventListener("change", listener);
+      } catch {
+        mq.removeListener(listener);
+      }
+    };
+  }, []);
+
+  const applyTheme = (value) => {
+    setTheme(value);
+    document.documentElement.setAttribute("data-theme", value);
+    try {
+      localStorage.setItem("theme-preference", value);
+    } catch {
+      /* ignore */
+    }
   };
+
+  const toggleTheme = () => {
+    applyTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  // Efeito para detectar transições e aplicar classes temporárias
+  useEffect(() => {
+    const current = connecting
+      ? "connecting"
+      : clientStatus
+      ? "connected"
+      : "disconnected";
+    const prev = prevConnStateRef.current;
+
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current);
+      transitionTimeoutRef.current = null;
+    }
+
+    // Transição: conectando -> conectado
+    if (prev === "connecting" && current === "connected") {
+      setTransitionClass("connected-transition");
+      transitionTimeoutRef.current = setTimeout(
+        () => setTransitionClass(""),
+        1100
+      );
+    }
+    // Transição: desconectado -> conectando
+    if (prev === "disconnected" && current === "connecting") {
+      setTransitionClass("reconnect-transition");
+      transitionTimeoutRef.current = setTimeout(
+        () => setTransitionClass(""),
+        1300
+      );
+    }
+
+    prevConnStateRef.current = current;
+    return () => {
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+    };
+  }, [connecting, clientStatus]);
 
   return (
     <>
-      <div className="w-100 py-4 d-flex justify-content-around align-items-center border-bottom border-dark">
-        <div className="col-6 col-md-5 d-flex justify-content-center align-items-center">
-          <div className=" animationSmart mx-5">
-            <i className="bi bi-house fs-3 text-light p-3 opacidade rounded-5"></i>
+      <header className="container-fluid py-3 border-bottom border-dark mb-4">
+        <div className="row g-3 align-items-center justify-content-between">
+          <div className="col-12 col-md-6 d-flex align-items-center justify-content-center justify-content-md-start gap-3 text-center text-md-start">
+            <div className="animationSmart">
+              <i className="bi bi-house fs-3 text-light p-3 opacidade rounded-5"></i>
+            </div>
+            <div>
+              <h2 id="title" className="mb-0">
+                SmartHouse
+              </h2>
+              <small className="text-secondary d-block">Controle via IoT</small>
+            </div>
           </div>
-          <div>
-            <h2 id="title">SmartHouse</h2>
-            <span className="text-dark-emphasis">Controle via IoT</span>
+          <div className="col-12 col-md-6 d-flex align-items-center justify-content-center justify-content-md-end gap-3 flex-wrap">
+            {/* Status de conexão com animações suaves */}
+            {(() => {
+              const connectionState = connecting
+                ? "connecting"
+                : clientStatus
+                ? "connected"
+                : "disconnected";
+              return (
+                <div
+                  className={`connection-status ${connectionState} ${transitionClass}`}
+                  data-conn={connectionState}
+                >
+                  <div className="icon">
+                    <i className="bi bi-wifi wifi-icon fs-3" />
+                    <i className="bi bi-wifi-off wifi-off-icon fs-3" />
+                    {connectionState === "connecting" && (
+                      <span className="spinner" />
+                    )}
+                  </div>
+                  <span className="state-pill">
+                    {connectionState === "connecting"
+                      ? "Conectando..."
+                      : connectionState === "connected"
+                      ? "Conectado"
+                      : "Desconectado"}
+                  </span>
+                </div>
+              );
+            })()}
+
+            <button
+              className={`theme-toggle ${theme}`}
+              onClick={toggleTheme}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleTheme();
+                }
+              }}
+              aria-label="Alternar tema claro/escuro"
+              aria-pressed={theme === "light"}
+              title={`Tema atual: ${theme === "dark" ? "Escuro" : "Claro"}`}
+            >
+              <span className="toggle-track">
+                <span className="toggle-glow" />
+                <span className="toggle-thumb" />
+                <i className="bi bi-brightness-high sun-icon" />
+                <i className="bi bi-moon moon-icon" />
+              </span>
+            </button>
           </div>
         </div>
-        <button className="mb-3 px-3 py-2 d-flex align-items-center justify-content-center rounded-5" onClick={toggleTheme}>
-          {theme === "dark" ? <i className="bi bi-brightness-high fs-4"></i> : <i className="bi bi-moon fs-4"></i>}
-        </button>
-      </div>
-      <div className="row mx-4">
-        <Container
-          titulo="Garagem"
-          intrucao="Abrir portão basculante"
-          intrucao2="Abrir portão social"
-          intrucao3="Sensor de movimentação"
-          botaoFe="Fechar"
-          botaoAb="Abrir"
-          onAbrir={abrirPortao}
-          onFechar={fecharPortao}
-          onAbrirSocial={abrirPortaoSocial}
-          movimento={movimento}
-          status={statusPortao}
-          statusSocial={statusPortaoSocial} // Passa status social
-          luz={statusLuzGaragem} // Passa status da luz da garagem
-        />
+      </header>
+      <main className="container-fluid mt-3">
+        <div className="row g-3 justify-content-center">
+          <Container
+            titulo="Garagem"
+            intrucao="Portão basculante"
+            intrucao2="Portão social"
+            intrucao3="Sensor de movimentação"
+            botaoFe="Fechar"
+            botaoAb="Abrir"
+            onAbrir={abrirPortao}
+            onFechar={fecharPortao}
+            onAbrirSocial={abrirPortaoSocial}
+            movimento={movimento}
+            status={statusPortao}
+            statusSocial={statusPortaoSocial} // Passa status social
+            luz={statusLuzGaragem} // Passa status da luz da garagem
+          />
 
-        <ContainerQuarto
-          titulo="Quarto"
-          statusTomada={statusTomada}
-          statusCortina={statusCortina}
-          statusLuz={statusLuz}
-          onAbrirCortina={abrirCortina}
-          onFecharCortina={fecharCortina}
-          onLigarLuz={ligarLuz}
-          onDesligarLuz={desligarLuz}
-          onLigarTomada={ligarTomada}
-          onDesligarTomada={desligarTomada}
-        />
-        <ContainerSala
-          titulo="Sala"
-          intrucao="Ligar luz"
-          intrucao2="Ligar ar condicionado"
-          intrucao3="Ligar umidificador"
-          botaoFe="Desligar"
-          botaoAb="Ligar"
-          onAbrir={ligarLuzSala}
-          onFechar={desligarLuzSala}
-          status={statusLuzSala} // Passa o status da luz da sala
-          onAbrir2={ligarArCondicionado}
-          onFechar2={desligarArCondicionado}
-          status2={statusArCondicionado}
-          onAbrir3={ligarUmidificador}
-          onFechar3={desligarUmidificador}
-          status3={statusUmidificador}
-        />
-      </div>
+          <ContainerQuarto
+            titulo="Quarto"
+            statusTomada={statusTomada}
+            statusCortina={statusCortina}
+            statusLuz={statusLuz}
+            onAbrirCortina={abrirCortina}
+            onFecharCortina={fecharCortina}
+            onLigarLuz={ligarLuz}
+            onDesligarLuz={desligarLuz}
+            onLigarTomada={ligarTomada}
+            onDesligarTomada={desligarTomada}
+          />
+          <ContainerSala
+            titulo="Sala"
+            intrucao="Ligar luz"
+            intrucao2="Ligar ar condicionado"
+            intrucao3="Ligar umidificador"
+            botaoFe="Desligar"
+            botaoAb="Ligar"
+            temp={temp}
+            umid={umid}
+            onAbrir={ligarLuzSala}
+            onFechar={desligarLuzSala}
+            status={statusLuzSala} // Passa o status da luz da sala
+            onAbrir2={ligarArCondicionado}
+            onFechar2={desligarArCondicionado}
+            status2={statusArCondicionado}
+            onAbrir3={ligarUmidificador}
+            onFechar3={desligarUmidificador}
+            status3={statusUmidificador}
+          />
+        </div>
+      </main>
     </>
   );
 }
