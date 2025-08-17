@@ -1,9 +1,16 @@
 import React from "react";
+import useInteractiveTilt from "../hooks/useInteractiveTilt";
 import BotoesDeControleGar from "./BotoesDeControleGar";
 
 const ContainerQuarto = (props) => {
+  const tiltRef = useInteractiveTilt();
+
   return (
-    <div className="col-12 col-sm-10 col-md-6 col-lg-4 col-xxl-3 mx-2 rounded-2 p-3 container">
+    <div
+      ref={tiltRef}
+      className="col-12 col-sm-10 col-md-6 col-lg-4 col-xxl-3 mx-2 rounded-2 p-3 container"
+      tabIndex={0}
+    >
       <h4 className="border-bottom border-2 my-1 border-white p-2">
         <i className="bi bi-houses fs-4"></i> {props.titulo}
       </h4>
@@ -17,7 +24,7 @@ const ContainerQuarto = (props) => {
         status={props.statusCortina}
       />
       <BotoesDeControleGar
-      icon={<i className="bi bi-lightbulb fs-5"></i>}
+        icon={<i className="bi bi-lightbulb fs-5"></i>}
         intrucao="Luz do Quarto"
         botaoAb="Ligar"
         botaoFe="Desligar"

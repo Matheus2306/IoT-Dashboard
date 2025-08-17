@@ -12,6 +12,97 @@ body {
   border-radius: 10px;
   position: relative; /* para o anel animado */
   overflow: hidden; /* evita que a animação saia do container */
+  /* 3D hover base */
+  transform: perspective(1200px) translateZ(0) rotateX(0deg) rotateY(0deg)
+    scale(1);
+  transition: transform 0.9s cubic-bezier(0.22, 0.99, 0.34, 1),
+    box-shadow 0.8s ease, filter 0.8s ease;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Variáveis para efeito 3D (podem ser ajustadas por tema no futuro) */
+:root {
+  --container-3d-raise: -6px; /* deslocamento Y ao hover */
+  --container-3d-rot-x: 6deg;
+  --container-3d-rot-y: 5deg;
+  --container-3d-scale: 1.018;
+  --container-3d-shadow: 0 18px 28px -12px rgba(0, 0, 0, 0.55),
+    0 8px 12px -6px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  --container-3d-shadow-active: 0 25px 40px -18px rgba(0, 0, 0, 0.65),
+    0 10px 16px -8px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  --container-3d-glow: 0 0 22px -6px var(--accent-glow),
+    0 0 34px -8px var(--accent-alt);
+}
+
+[data-theme="light"] {
+  --container-3d-shadow: 0 14px 22px -12px rgba(0, 0, 0, 0.25),
+    0 6px 10px -6px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.05) inset;
+  --container-3d-shadow-active: 0 18px 30px -14px rgba(0, 0, 0, 0.3),
+    0 8px 14px -8px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06) inset;
+  --container-3d-glow: 0 0 18px -6px var(--accent-glow),
+    0 0 22px -10px var(--accent-alt);
+}
+
+/* Overlay de luz especular usando pseudo-elemento adicional via blend em after já está ocupado; usar um gradiente interno no container */
+.container::after {
+  /* ...existing rules... */
+  background: var(--container-bg),
+    radial-gradient(
+      circle at 30% 18%,
+      rgba(255, 255, 255, 0.14),
+      transparent 55%
+    ),
+    linear-gradient(125deg, rgba(255, 255, 255, 0.05), transparent 60%);
+  background-blend-mode: overlay, normal;
+}
+
+/* Estado hover / focus-within (para acessibilidade via teclado) */
+.container:is(:hover, :focus-within) {
+  transform: perspective(1200px) translateY(var(--container-3d-raise))
+    rotateX(var(--container-3d-rot-x)) rotateY(var(--container-3d-rot-y))
+    scale(var(--container-3d-scale));
+  box-shadow: var(--container-3d-shadow), var(--container-3d-glow);
+  filter: brightness(1.04) saturate(1.08);
+}
+
+/* Clique / active dá sensação de compressão */
+.container:active {
+  transform: perspective(1200px) translateY(calc(var(--container-3d-raise) / 2))
+    rotateX(calc(var(--container-3d-rot-x) * 0.6))
+    rotateY(calc(var(--container-3d-rot-y) * 0.6))
+    scale(calc(var(--container-3d-scale) * 0.995));
+  box-shadow: var(--container-3d-shadow-active), var(--container-3d-glow);
+  transition-duration: 0.25s;
+}
+
+/* Suave flutuação idle quando não em hover (desativado se usuário prefere menos movimento) */
+@keyframes containerIdleFloat {
+  0%,
+  100% {
+    transform: perspective(1200px) translateZ(0) rotateX(0deg) rotateY(0deg)
+      scale(1);
+  }
+  50% {
+    transform: perspective(1200px) translateZ(0) rotateX(1.2deg)
+      rotateY(-1.2deg) scale(1.004);
+  }
+}
+
+.container:not(:hover):not(:focus-within) {
+  animation: containerIdleFloat 9s ease-in-out infinite;
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container,
+  .container:not(:hover):not(:focus-within) {
+    animation: none !important;
+    transition: box-shadow 0.4s ease, filter 0.4s ease, background 0.4s ease;
+    transform: none !important;
+  }
 }
 
 /* ================= Box-Shadow Giratório (Azul / Roxo) ================= */
@@ -24,6 +115,8 @@ body {
   --rot-ring-speed: 6s;
   --rot-ring-blur: 0px; /* pode ajustar para leve glow interno */
   --rot-ring-angle: 0deg; /* ângulo animado (custom property) */
+  --rot-ring-pulse-speed: 4.5s; /* duração do pulso */
+  --rot-ring-opacity-min: 0.45; /* opacidade mínima no meio do pulso */
 }
 
 [data-theme="light"] {
@@ -34,6 +127,8 @@ body {
   --rot-ring-speed: 5.5s;
   --rot-ring-blur: 0px;
   --rot-ring-angle: 0deg;
+  --rot-ring-pulse-speed: 5s;
+  --rot-ring-opacity-min: 0.38;
 }
 
 /* Anel interno rotativo (não extrapola o container) */
@@ -57,9 +152,10 @@ body {
     var(--rot-ring-color2) 270deg,
     var(--rot-ring-color1) 360deg
   );
-  /* Animação dupla: 1) ângulo via custom property (suave); 2) fallback rotate para browsers sem @property */
+  /* Animações: spin + fallback + pulso */
   animation: ringSpin var(--rot-ring-speed) linear infinite,
-    ringFallback var(--rot-ring-speed) linear infinite;
+    ringFallback var(--rot-ring-speed) linear infinite,
+    ringPulse var(--rot-ring-pulse-speed) ease-in-out infinite;
   filter: blur(var(--rot-ring-blur));
   opacity: var(--rot-ring-opacity);
   z-index: 0;
@@ -95,6 +191,19 @@ body {
 @keyframes ringFallback {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Pulso de brilho / opacidade suave */
+@keyframes ringPulse {
+  0%,
+  100% {
+    opacity: var(--rot-ring-opacity);
+    filter: blur(var(--rot-ring-blur)) brightness(1);
+  }
+  50% {
+    opacity: var(--rot-ring-opacity-min);
+    filter: blur(var(--rot-ring-blur)) brightness(1.18);
   }
 }
 

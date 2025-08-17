@@ -1,19 +1,28 @@
 import React from "react";
+import useInteractiveTilt from "../hooks/useInteractiveTilt";
 import BotoesDeControleGar from "./BotoesDeControleGar";
 
 const ContainerSala = (props) => {
+  const tiltRef = useInteractiveTilt();
+
   return (
-    <div className="col-12 col-sm-10 col-md-6 col-lg-4 col-xxl-3 mx-2 rounded-2 p-3 container">
+    <div
+      ref={tiltRef}
+      className="col-12 col-sm-10 col-md-6 col-lg-4 col-xxl-3 mx-2 rounded-2 p-3 container"
+      tabIndex={0}
+    >
       <div className="border-bottom border-2 border-white mb-3">
         <h4 className=" my-1 p-2">
-         <i class="bi bi-tv"></i> {props.titulo}
+          <i class="bi bi-tv"></i> {props.titulo}
         </h4>
         {props.temp && props.umid ? (
           <div className="d-flex align-items-center">
             <span className="mx-3">Temperatura: {props.temp}°C</span>
             <span>Umidade: {props.umid}%</span>
           </div>
-        ):(<span>Nenhum dado disponível</span>)}
+        ) : (
+          <span>Nenhum dado disponível</span>
+        )}
       </div>
       <BotoesDeControleGar
         icon={<i className="bi bi-lamp fs-5"></i>}
