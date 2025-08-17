@@ -10,6 +10,98 @@ body {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   padding: 20px;
   border-radius: 10px;
+  position: relative; /* para o anel animado */
+  overflow: hidden; /* evita que a animação saia do container */
+}
+
+/* ================= Box-Shadow Giratório (Azul / Roxo) ================= */
+/* Variáveis específicas (definidas também nos temas abaixo) */
+:root {
+  --rot-ring-color1: #0d3bff;
+  --rot-ring-color2: #7200ff;
+  --rot-ring-width: 3px; /* espessura do anel */
+  --rot-ring-opacity: 0.9;
+  --rot-ring-speed: 6s;
+  --rot-ring-blur: 0px; /* pode ajustar para leve glow interno */
+  --rot-ring-angle: 0deg; /* ângulo animado (custom property) */
+}
+
+[data-theme="light"] {
+  --rot-ring-color1: #2563eb;
+  --rot-ring-color2: #7c3aed;
+  --rot-ring-width: 3px;
+  --rot-ring-opacity: 0.75;
+  --rot-ring-speed: 5.5s;
+  --rot-ring-blur: 0px;
+  --rot-ring-angle: 0deg;
+}
+
+/* Anel interno rotativo (não extrapola o container) */
+/* Usamos dois pseudo-elementos: ::before = anel; ::after = "tampa" central */
+.container::before,
+.container::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Anel que gira */
+.container::before {
+  background: conic-gradient(
+    from var(--rot-ring-angle),
+    var(--rot-ring-color1) 0deg,
+    var(--rot-ring-color2) 90deg,
+    var(--rot-ring-color1) 180deg,
+    var(--rot-ring-color2) 270deg,
+    var(--rot-ring-color1) 360deg
+  );
+  /* Animação dupla: 1) ângulo via custom property (suave); 2) fallback rotate para browsers sem @property */
+  animation: ringSpin var(--rot-ring-speed) linear infinite,
+    ringFallback var(--rot-ring-speed) linear infinite;
+  filter: blur(var(--rot-ring-blur));
+  opacity: var(--rot-ring-opacity);
+  z-index: 0;
+}
+
+/* Tampa central recria o fundo do container deixando só a "borda" colorida visível */
+.container::after {
+  background: var(--container-bg);
+  inset: calc(var(--rot-ring-width) * 1.4);
+  z-index: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04); /* leve linha interna opcional */
+}
+
+/* Conteúdo do container fica acima do anel */
+.container > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Definição da custom property para interpolação suave */
+@property --rot-ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes ringSpin {
+  to {
+    --rot-ring-angle: 360deg;
+  }
+}
+/* Fallback baseado em transform para navegadores sem suporte @property */
+@keyframes ringFallback {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .container::before {
+    animation: none;
+  }
 }
 
 #title {

@@ -1,31 +1,35 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
-import LeitorDHT from "./components/LeitorDHT";
-import Paho from "paho-mqtt";
+import LeitorDHT from "./components/LeitorDHT"; // (aparentemente não usado no JSX atual)
+import Paho, { Message } from "paho-mqtt";
 import Container from "./components/Container";
 import ContainerQuarto from "./components/ContainerQuarto";
 import ContainerSala from "./components/ContainerSala";
 
 function App() {
-  const [temp, setTemp] = useState("");
-  const [umid, setUmid] = useState("");
+  // Estados de sensores e atuadores
+  const [temp, setTemp] = useState(""); // Temperatura (sem os últimos 2 chars, provavelmente "°C")
+  const [umid, setUmid] = useState(""); // Umidade (idem)
   const [movimento, setMovimento] = useState("Nenhum movimento detectado");
-  const [statusPortao, setStatusPortao] = useState("Fechado");
-  const [statusPortaoSocial, setStatusPortaoSocial] = useState("Fechado"); // Novo estado
+  const [statusPortao, setStatusPortao] = useState("Fechado"); // Portão basculante (garagem)
+  const [statusPortaoSocial, setStatusPortaoSocial] = useState("Fechado"); // Portão social
   const [statusCortina, setStatusCortina] = useState("Fechada");
-  const [statusLuz, setStatusLuz] = useState("Desligada");
-  const [statusTomada, setStatusTomada] = useState("desligada");
-  const [statusLuzSala, setStatusLuzSala] = useState("desligada"); // Novo estado para a luz da sala
+  const [statusLuz, setStatusLuz] = useState("Desligada"); // Luz quarto
+  const [statusTomada, setStatusTomada] = useState("Desligada");
+  const [statusLuzSala, setStatusLuzSala] = useState("desligada"); // Luz sala
   const [statusArCondicionado, setStatusArCondicionado] = useState("desligado");
   const [statusUmidificador, setStatusUmidificador] = useState("desligado");
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState("dark"); // Tema (dark/light)
 
-  const movimentoTimeoutRef = useRef(null);
-  const clientRef = useRef(null);
-  const [statusLuzGaragem, setStatusLuzGaragem] = useState("Desligada");
+  // Refs para timers e cliente MQTT
+  const movimentoTimeoutRef = useRef(null); // Timer para resetar mensagem de movimento
+  const clientRef = useRef(null); // Referência ao cliente MQTT (Paho)
+  const [statusLuzGaragem, setStatusLuzGaragem] = useState("Desligada"); // Luz garagem
 
+  // Configuração do broker MQTT
   const broker = "broker.hivemq.com";
-  const port = 8884;
+  const port = 8884; // Porta WebSocket segura (useSSL: true)
+  // Tópicos de sensores e atuadores
   const tempTopic = "sala/temperatura";
   const umidTopic = "sala/umidade";
   const garagemTopic = "garagem/basculante";
@@ -34,142 +38,184 @@ function App() {
   const cortinaTopic = "quarto/cortina";
   const luzTopic = "quarto/luz";
   const tomadaTopic = "quarto/tomada";
-  // tópicos para a sala
+  // Sala
   const luzSalaTopic = "sala/luz";
   const arSalaTopic = "sala/ar";
   const umidificadorSalaTopic = "sala/umidificador";
-
-  // Tópicos auxiliares
+  // Auxiliar
   const luzGaragemTopic = "garagem/luz";
 
-  // Estado do cliente MQTT
+  // Estado de conexão do cliente MQTT
   const [clientStatus, setClientStatus] = useState(false); // true = conectado
   const [connecting, setConnecting] = useState(true); // true = tentando conectar
-  const [transitionClass, setTransitionClass] = useState(""); // classe temporária para animações
-  const prevConnStateRef = useRef(null);
-  const transitionTimeoutRef = useRef(null);
+  const [transitionClass, setTransitionClass] = useState(""); // Classe temporária para animações de transição
+  const prevConnStateRef = useRef(null); // Guarda estado anterior para detectar transições
+  const transitionTimeoutRef = useRef(null); // Timer para remover classe de transição
 
+  // Efeito inicial: cria e conecta o cliente MQTT
   useEffect(() => {
-    const clientId = "webClient_" + Math.random().toString(16).substr(2, 8);
+    const clientId = "webClient_" + Math.random().toString(16).substr(2, 8); // Gera ID aleatório
     const client = new Paho.Client(broker, port, clientId);
     clientRef.current = client;
 
     setConnecting(true);
     setClientStatus(false);
 
+    // Handler: conexão perdida
     client.onConnectionLost = (responseObject) => {
       setClientStatus(false);
       setConnecting(false);
       if (responseObject.errorCode !== 0) {
         console.log("Conexão perdida: " + responseObject.errorMessage);
       }
-      reconnectClient();
+      reconnectClient(); // Tenta reconectar automaticamente
       console.log("Reconectando ao broker MQTT...");
     };
 
+    // (Algumas versões do Paho não possuem onConnectionEstablished; manter se personalizado)
     client.onConnectionEstablished = () => {
       setClientStatus(true);
       setConnecting(false);
     };
 
+    // Handler: mensagens recebidas
     client.onMessageArrived = (message) => {
+      // Temperatura
       if (message.destinationName === tempTopic) {
-        setTemp(message.payloadString.slice(0, -2));
+        setTemp(message.payloadString.slice(0, -2)); // Remove sufixo (ex: "°C")
       }
+      // Umidade
       if (message.destinationName === umidTopic) {
-        setUmid(message.payloadString.slice(0, -2));
+        setUmid(message.payloadString.slice(0, -2)); // Remove sufixo
       }
+      // Movimento (payload esperado: JSON com { movimento: boolean })
       if (message.destinationName === movimentoTopic) {
         try {
           const data = JSON.parse(message.payloadString);
           if (data.movimento === true) {
             setMovimento("Movimento detectado");
-            if (movimentoTimeoutRef.current) {
+            if (movimentoTimeoutRef.current)
               clearTimeout(movimentoTimeoutRef.current);
-            }
+            // Reseta mensagem após 5s
             movimentoTimeoutRef.current = setTimeout(() => {
               setMovimento("Nenhum movimento detectado");
             }, 5000);
           } else {
             setMovimento("Nenhum movimento detectado");
-            if (movimentoTimeoutRef.current) {
+            if (movimentoTimeoutRef.current)
               clearTimeout(movimentoTimeoutRef.current);
-            }
           }
         } catch {
+          // Se payload inválido, assume sem movimento
           setMovimento("Nenhum movimento detectado");
         }
       }
 
-      //respostas para a garagem
+      // ============= Garagem ==============
+
+      // Luz garagem
       if (message.destinationName === luzGaragemTopic) {
-        if (message.payloadString === "on") {
-          setStatusLuzGaragem("Ligada");
-        } else if (message.payloadString === "off") {
+        if (message.payloadString == "ligada" || message.payloadString == "ligado") setStatusLuzGaragem("Ligada");
+        else if (message.payloadString == "desligado")
           setStatusLuzGaragem("Desligada");
-        }
       }
+
+      // Portão social (retornos: "aberto"/"fechado")
       if (message.destinationName === socialTopic) {
-        if (message.payloadString == "abrir") {
-          setStatusPortaoSocial("Aberto");
-        } else if (message.payloadString == "fechar") {
+        if (message.payloadString == "aberto") setStatusPortaoSocial("Aberto");
+        else if (message.payloadString == "fechado")
           setStatusPortaoSocial("Fechado");
-        }
       }
 
+      // Portão basculante
       if (message.destinationName === garagemTopic) {
-        if (message.payloadString === "abrir") {
-          setStatusPortao("Aberto");
-        } else if (message.payloadString === "fechar") {
+        if (message.payloadString == "aberto") setStatusPortao("aberto");
+        else if (message.payloadString == "fechado")
           setStatusPortao("Fechado");
-        }
       }
 
+      // =========== Quarto ===============
+
+      // Cortina (aberta/fechada)
       if (message.destinationName === cortinaTopic) {
-        if (message.payloadString === "aberta") {
-          setStatusCortina("Aberta");
-        } else if (message.payloadString === "fechada") {
+        if (message.payloadString == "aberta") setStatusCortina("Aberta");
+        else if (message.payloadString == "fechada")
           setStatusCortina("Fechada");
-        }
       }
+
+      // Luz quarto (ligado/desligado)
       if (message.destinationName === luzTopic) {
-        if (message.payloadString === "on") {
-          setStatusLuz("Ligada");
-        } else if (message.payloadString === "off") {
+        if (message.payloadString == "ligada") setStatusLuz("Ligada");
+        else if (message.payloadString == "desligada")
           setStatusLuz("Desligada");
-        }
+      }
+
+      //tomada do quarto (ligado/desligado)
+      if (message.destinationName === tomadaTopic) {
+        if (message.payloadString == "ligado") setStatusTomada("Ligada");
+        else if (message.payloadString == "desligado")
+          setStatusTomada("Desligada");
+      }
+
+      // ============= Sala ============
+
+      //luz da sala (ligada/desligada)
+      if (message.destinationName === luzSalaTopic) {
+        if(message.payloadString == "ligada") setStatusLuzSala("Ligada");
+        else if (message.payloadString == "desligada")
+          setStatusLuzSala("Desligada");
+      }
+
+      //Ar condicionado (ligado/desligado)
+      if(message.destinationName === arSalaTopic) {
+        if(message.payloadString == "ligado") setStatusArCondicionado("Ligado");
+        else if (message.payloadString == "desligado")
+          setStatusArCondicionado("Desligado");
+      }
+
+      //umidificador (ligado/desligado)
+      if(message.destinationName === umidificadorSalaTopic) {
+        if(message.payloadString == "ligado") setStatusUmidificador("Ligado");
+        else if (message.payloadString == "desligado")
+          setStatusUmidificador("Desligado");
       }
     };
 
+    // Conecta ao broker
     client.connect({
       onSuccess: () => {
         setClientStatus(true);
         setConnecting(false);
+        // Inscreve em todos os tópicos necessários
         client.subscribe(tempTopic);
         client.subscribe(umidTopic);
         client.subscribe(movimentoTopic);
-        client.subscribe(luzGaragemTopic); // Inscreve no tópico da luz da garagem
+        client.subscribe(luzGaragemTopic);
         client.subscribe(socialTopic);
-        client.subscribe(garagemTopic); // Inscreve no tópico do portão basculante
+        client.subscribe(garagemTopic);
         client.subscribe(cortinaTopic);
         client.subscribe(luzTopic);
+        client.subscribe(umidificadorSalaTopic)
+        client.subscribe(tomadaTopic);
+        client.subscribe(luzSalaTopic);
+        client.subscribe(arSalaTopic);
       },
-      useSSL: true,
+      useSSL: true, // Conexão segura
       onFailure: () => {
         setClientStatus(false);
         setConnecting(false);
       },
     });
 
+    // Cleanup: desconecta e limpa timers
     return () => {
       client.disconnect();
-      if (movimentoTimeoutRef.current) {
+      if (movimentoTimeoutRef.current)
         clearTimeout(movimentoTimeoutRef.current);
-      }
     };
   }, []);
 
-  // função para reconectar o cliente
+  // Função de reconexão (usada em onConnectionLost)
   const reconnectClient = () => {
     if (clientRef.current && !clientRef.current.isConnected()) {
       setConnecting(true);
@@ -177,6 +223,21 @@ function App() {
         onSuccess: () => {
           setClientStatus(true);
           setConnecting(false);
+           clientRef.current.subscribe(tempTopic);
+            clientRef.current.subscribe(umidTopic);
+            clientRef.current.subscribe(movimentoTopic);
+            clientRef.current.subscribe(luzGaragemTopic);
+            clientRef.current.subscribe(socialTopic);
+            clientRef.current.subscribe(garagemTopic);
+            clientRef.current.subscribe(cortinaTopic);
+            clientRef.current.subscribe(luzTopic);
+            clientRef.current.subscribe(tomadaTopic);           
+            clientRef.current.subscribe(luzSalaTopic);          
+            clientRef.current.subscribe(arSalaTopic);           
+            clientRef.current.subscribe(umidificadorSalaTopic);
+            clientRef.current.subscribe(tomadaTopic);
+            clientRef.current.subscribe(luzSalaTopic);
+            clientRef.current.subscribe(arSalaTopic);
         },
         useSSL: true,
         onFailure: () => {
@@ -187,9 +248,9 @@ function App() {
     }
   };
 
-  // Funções para enviar comandos
+  // Funções utilitárias para envio de mensagens MQTT (atuadores)
   const abrirPortao = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("abrir");
       message.destinationName = garagemTopic;
       clientRef.current.send(message);
@@ -197,7 +258,7 @@ function App() {
   };
 
   const fecharPortao = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("fechar");
       message.destinationName = garagemTopic;
       clientRef.current.send(message);
@@ -205,10 +266,11 @@ function App() {
   };
 
   const abrirPortaoSocial = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("abrir");
       message.destinationName = socialTopic;
       clientRef.current.send(message);
+      // Fecha automaticamente após 5s
       setTimeout(() => {
         const fecharMsg = new Paho.Message("fechar");
         fecharMsg.destinationName = socialTopic;
@@ -217,8 +279,9 @@ function App() {
     }
   };
 
+  // Cortina quarto
   const abrirCortina = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("on");
       message.destinationName = cortinaTopic;
       clientRef.current.send(message);
@@ -226,15 +289,16 @@ function App() {
   };
 
   const fecharCortina = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("off");
       message.destinationName = cortinaTopic;
       clientRef.current.send(message);
     }
   };
 
+  // Luz quarto
   const ligarLuz = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("on");
       message.destinationName = luzTopic;
       clientRef.current.send(message);
@@ -242,86 +306,82 @@ function App() {
   };
 
   const desligarLuz = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("off");
       message.destinationName = luzTopic;
       clientRef.current.send(message);
     }
   };
 
+  // Tomada quarto
   const ligarTomada = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("on");
       message.destinationName = tomadaTopic;
       clientRef.current.send(message);
-      setStatusTomada("ligada");
     }
   };
 
   const desligarTomada = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("off");
       message.destinationName = tomadaTopic;
       clientRef.current.send(message);
-      setStatusTomada("desligada");
     }
   };
 
+  // Luz sala
   const ligarLuzSala = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("on");
       message.destinationName = luzSalaTopic;
       clientRef.current.send(message);
-      setStatusLuzSala("ligada");
     }
   };
 
   const desligarLuzSala = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("off");
       message.destinationName = luzSalaTopic;
       clientRef.current.send(message);
-      setStatusLuzSala("desligada");
     }
   };
 
+  // Ar condicionado
   const ligarArCondicionado = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("on");
       message.destinationName = arSalaTopic;
       clientRef.current.send(message);
-      setStatusArCondicionado("ligado");
     }
   };
 
   const desligarArCondicionado = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("off");
       message.destinationName = arSalaTopic;
       clientRef.current.send(message);
-      setStatusArCondicionado("desligado");
     }
   };
 
+  // Umidificador sala
   const ligarUmidificador = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("on");
       message.destinationName = umidificadorSalaTopic;
       clientRef.current.send(message);
-      setStatusUmidificador("ligado");
     }
   };
 
   const desligarUmidificador = () => {
-    if (clientRef.current && clientRef.current.isConnected()) {
+    if (clientRef.current?.isConnected()) {
       const message = new Paho.Message("off");
       message.destinationName = umidificadorSalaTopic;
       clientRef.current.send(message);
-      setStatusUmidificador("desligado");
     }
   };
 
-  // Inicializa tema com base em localStorage ou preferência do sistema
+  // Inicializa tema a partir do localStorage ou preferência do SO
   useEffect(() => {
     const STORAGE_KEY = "theme-preference";
     try {
@@ -333,15 +393,14 @@ function App() {
       setTheme(initial);
       document.documentElement.setAttribute("data-theme", initial);
     } catch {
-      // Falha ao acessar localStorage (modo privado / restrições)
+      // Falha ao acessar localStorage (modo privado, etc.)
     }
   }, []);
 
-  // Escuta mudanças de preferência do sistema (se o usuário não fixou manualmente depois)
+  // Observa mudanças na preferência de cor do sistema (caso usuário não tenha fixado manualmente)
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: light)");
     const listener = (ev) => {
-      // Só altera automaticamente se o usuário não forçou manualmente (sem storage setado)
       if (!localStorage.getItem("theme-preference")) {
         const next = ev.matches ? "light" : "dark";
         setTheme(next);
@@ -351,6 +410,7 @@ function App() {
     try {
       mq.addEventListener("change", listener);
     } catch {
+      // Fallback para navegadores antigos
       mq.addListener(listener);
     }
     return () => {
@@ -362,21 +422,23 @@ function App() {
     };
   }, []);
 
+  // Aplica e persiste o tema escolhido
   const applyTheme = (value) => {
     setTheme(value);
     document.documentElement.setAttribute("data-theme", value);
     try {
       localStorage.setItem("theme-preference", value);
     } catch {
-      /* ignore */
+      /* Ignora erros de armazenamento */
     }
   };
 
+  // Alterna entre dark e light
   const toggleTheme = () => {
     applyTheme(theme === "dark" ? "light" : "dark");
   };
 
-  // Efeito para detectar transições e aplicar classes temporárias
+  // Efeito para animar transições de estado de conexão
   useEffect(() => {
     const current = connecting
       ? "connecting"
@@ -390,7 +452,7 @@ function App() {
       transitionTimeoutRef.current = null;
     }
 
-    // Transição: conectando -> conectado
+    // Se recém conectou após connecting
     if (prev === "connecting" && current === "connected") {
       setTransitionClass("connected-transition");
       transitionTimeoutRef.current = setTimeout(
@@ -398,7 +460,7 @@ function App() {
         1100
       );
     }
-    // Transição: desconectado -> conectando
+    // Se saiu de desconectado para tentando reconectar
     if (prev === "disconnected" && current === "connecting") {
       setTransitionClass("reconnect-transition");
       transitionTimeoutRef.current = setTimeout(
@@ -408,17 +470,20 @@ function App() {
     }
 
     prevConnStateRef.current = current;
+
     return () => {
-      if (transitionTimeoutRef.current) {
+      if (transitionTimeoutRef.current)
         clearTimeout(transitionTimeoutRef.current);
-      }
     };
   }, [connecting, clientStatus]);
 
+  // JSX principal
   return (
     <>
+      {/* Cabeçalho / Barra superior */}
       <header className="container-fluid py-3 border-bottom border-dark mb-4">
         <div className="row g-3 align-items-center justify-content-between">
+          {/* Branding */}
           <div className="col-12 col-md-6 d-flex align-items-center justify-content-center justify-content-md-start gap-3 text-center text-md-start">
             <div className="animationSmart">
               <i className="bi bi-house fs-3 text-light p-3 opacidade rounded-5"></i>
@@ -430,8 +495,9 @@ function App() {
               <small className="text-secondary d-block">Controle via IoT</small>
             </div>
           </div>
+          {/* Lado direito: status + toggle tema */}
           <div className="col-12 col-md-6 d-flex align-items-center justify-content-center justify-content-md-end gap-3 flex-wrap">
-            {/* Status de conexão com animações suaves */}
+            {/* Bloco de status de conexão (usa IIFE para lógica inline) */}
             {(() => {
               const connectionState = connecting
                 ? "connecting"
@@ -461,6 +527,7 @@ function App() {
               );
             })()}
 
+            {/* Botão alternar tema */}
             <button
               className={`theme-toggle ${theme}`}
               onClick={toggleTheme}
@@ -484,8 +551,11 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* Conteúdo principal */}
       <main className="container-fluid mt-3">
         <div className="row g-3 justify-content-center">
+          {/* Container Garagem */}
           <Container
             titulo="Garagem"
             intrucao="Portão basculante"
@@ -498,10 +568,11 @@ function App() {
             onAbrirSocial={abrirPortaoSocial}
             movimento={movimento}
             status={statusPortao}
-            statusSocial={statusPortaoSocial} // Passa status social
-            luz={statusLuzGaragem} // Passa status da luz da garagem
+            statusSocial={statusPortaoSocial}
+            luz={statusLuzGaragem}
           />
 
+          {/* Container Quarto */}
           <ContainerQuarto
             titulo="Quarto"
             statusTomada={statusTomada}
@@ -514,6 +585,8 @@ function App() {
             onLigarTomada={ligarTomada}
             onDesligarTomada={desligarTomada}
           />
+
+          {/* Container Sala (inclui sensores de temperatura/umidade) */}
           <ContainerSala
             titulo="Sala"
             intrucao="Ligar luz"
@@ -525,7 +598,7 @@ function App() {
             umid={umid}
             onAbrir={ligarLuzSala}
             onFechar={desligarLuzSala}
-            status={statusLuzSala} // Passa o status da luz da sala
+            status={statusLuzSala}
             onAbrir2={ligarArCondicionado}
             onFechar2={desligarArCondicionado}
             status2={statusArCondicionado}
