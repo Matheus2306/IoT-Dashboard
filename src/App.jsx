@@ -138,23 +138,29 @@ function App() {
 
       // Cortina (aberta/fechada)
       if (message.destinationName === cortinaTopic) {
-        if (message.payloadString == "aberta") setStatusCortina("Aberta");
-        else if (message.payloadString == "fechada")
-          setStatusCortina("Fechada");
+        const v = message.payloadString.trim().toLowerCase();
+        if (v === "aberta") setStatusCortina("Aberta");
+        else if (v === "fechada") setStatusCortina("Fechada");
       }
 
-      // Luz quarto (ligado/desligado)
+      // Luz quarto (ligada/desligada)
       if (message.destinationName === luzTopic) {
-        if (message.payloadString == "ligada") setStatusLuz("Ligada");
-        else if (message.payloadString == "desligada")
+        const v = message.payloadString.trim().toLowerCase();
+        if (v === "ligada" || v === "ligado" || v === "on") setStatusLuz("Ligada");
+        else if (v === "desligada" || v === "desligado" || v === "off")
           setStatusLuz("Desligada");
       }
 
-      //tomada do quarto (ligado/desligado)
+      // Tomada quarto (ligado/desligado)
       if (message.destinationName === tomadaTopic) {
-        if (message.payloadString == "ligado") setStatusTomada("Ligada");
-        else if (message.payloadString == "desligado")
+        const raw = message.payloadString;
+        const v = raw.trim().toLowerCase();
+        console.log("MQTT tomada payload recebido:", raw);
+        if (v === "ligado" || v === "ligada" || v === "on") {
+          setStatusTomada("Ligada");
+        } else if (v === "desligado" || v === "desligada" || v === "off") {
           setStatusTomada("Desligada");
+        }
       }
 
       // ============= Sala ============
@@ -166,10 +172,12 @@ function App() {
           setStatusLuzSala("Desligada");
       }
 
-      //Ar condicionado (ligado/desligado)
-      if(message.destinationName === arSalaTopic) {
-        if(message.payloadString == "ligado") setStatusArCondicionado("Ligado");
-        else if (message.payloadString == "desligado")
+      //Ar condicionado (Ligado/Desligado - normaliza)
+      if (message.destinationName === arSalaTopic) {
+        const v = message.payloadString.trim().toLowerCase();
+        if (v === "ligado" || v === "on")
+          setStatusArCondicionado("Ligado");
+        else if (v === "desligado" || v === "off")
           setStatusArCondicionado("Desligado");
       }
 
@@ -232,8 +240,7 @@ function App() {
             clientRef.current.subscribe(cortinaTopic);
             clientRef.current.subscribe(luzTopic);
             clientRef.current.subscribe(tomadaTopic);           
-            clientRef.current.subscribe(luzSalaTopic);          
-            clientRef.current.subscribe(arSalaTopic);           
+            clientRef.current.subscribe(luzSalaTopic);      
             clientRef.current.subscribe(umidificadorSalaTopic);
             clientRef.current.subscribe(tomadaTopic);
             clientRef.current.subscribe(luzSalaTopic);
@@ -348,19 +355,21 @@ function App() {
   };
 
   // Ar condicionado
-  const ligarArCondicionado = () => {
+  const ligarAr = () => {
     if (clientRef.current?.isConnected()) {
-      const message = new Paho.Message("on");
-      message.destinationName = arSalaTopic;
-      clientRef.current.send(message);
+      const msg = new Paho.Message("on");
+      msg.destinationName = arSalaTopic;
+      clientRef.current.send(msg);
+      setStatusArCondicionado("Ligado");
     }
   };
 
-  const desligarArCondicionado = () => {
+  const desligarAr = () => {
     if (clientRef.current?.isConnected()) {
-      const message = new Paho.Message("off");
-      message.destinationName = arSalaTopic;
-      clientRef.current.send(message);
+      const msg = new Paho.Message("off");
+      msg.destinationName = arSalaTopic;
+      clientRef.current.send(msg);
+      setStatusArCondicionado("Desligado");
     }
   };
 
@@ -599,12 +608,13 @@ function App() {
             onAbrir={ligarLuzSala}
             onFechar={desligarLuzSala}
             status={statusLuzSala}
-            onAbrir2={ligarArCondicionado}
-            onFechar2={desligarArCondicionado}
+            onAbrir2={ligarAr}
+            onFechar2={desligarAr}
             status2={statusArCondicionado}
             onAbrir3={ligarUmidificador}
             onFechar3={desligarUmidificador}
             status3={statusUmidificador}
+            statusAr={statusArCondicionado}
           />
         </div>
       </main>
